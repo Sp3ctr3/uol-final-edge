@@ -16,4 +16,5 @@ idf_component_register(
         "esp_cli.c"
 
     PRIV_REQUIRES console static_images spi_flash
+    REQUIRES esp_wifi nvs_flash
     INCLUDE_DIRS "")
