@@ -30,6 +30,28 @@ limitations under the License.
 #include "image_provider.h"
 #include "esp_main.h"
 
+
+// // Code from ESP32 Camera driver
+// #include "esp_http_server.h"
+// typedef struct {
+//         httpd_req_t *req;
+//         size_t len;
+// } jpg_chunking_t;
+
+
+// static size_t jpg_encode_stream(void * arg, size_t index, const void* data, size_t len){
+//     jpg_chunking_t *j = (jpg_chunking_t *)arg;
+//     if(!index){
+//         j->len = 0;
+//     }
+//     if(httpd_resp_send_chunk(j->req, (const char *)data, len) != ESP_OK){
+//         return 0;
+//     }
+//     j->len += len;
+//     return len;
+// }
+// // End of code from ESP32 Camera driver
+
 static const char* TAG = "app_camera";
 
 static uint16_t *display_buf; // buffer to hold data to be sent to display
@@ -70,9 +92,20 @@ void *image_provider_get_display_buf()
 }
 
 // Get an image from the camera module
-TfLiteStatus GetImage(int image_width, int image_height, int channels, int8_t* image_data) {
+TfLiteStatus GetImage(int image_width, int image_height, int channels, int8_t* image_data, uint8_t* jpg_data) {
 #if ESP_CAMERA_SUPPORTED
   camera_fb_t* fb = esp_camera_fb_get();
+  // bool converted = frame2bmp(fb, &bmp_data, (size_t *) 1);
+  // MicroPrintf("Image in bmp %d\n",(size_t *) sizeof(bmp_data));
+  // size_t _jpg_buf_len;
+  // uint8_t * _jpg_buf;
+  // bool jpeg_converted = frame2jpg(fb, 80, &_jpg_buf, &_jpg_buf_len);
+  // MicroPrintf("Jpeg compression success: %d\n",jpeg_converted); 
+  // MicroPrintf("Jpeg compression size: %d\n",_jpg_buf_len); 
+  // if(jpeg_converted){
+    // memcpy(jpg_data,_jpg_buf,_jpg_buf_len);
+    // free(_jpg_buf);
+  // }
   if (!fb) {
     ESP_LOGE(TAG, "Camera capture failed");
     return kTfLiteError;

@@ -14,6 +14,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdalign.h>
 #include "esp_heap_caps.h"
 #include "ll_cam.h"
 #include "cam_hal.h"
@@ -265,7 +266,7 @@ static esp_err_t cam_dma_config(const camera_config_t *config)
     cam_obj->dma_buffer = NULL;
     cam_obj->dma = NULL;
 
-    cam_obj->frames = (cam_frame_t *)heap_caps_calloc(1, cam_obj->frame_cnt * sizeof(cam_frame_t), MALLOC_CAP_DEFAULT);
+    cam_obj->frames = (cam_frame_t *)heap_caps_aligned_calloc(alignof(cam_frame_t), 1, cam_obj->frame_cnt * sizeof(cam_frame_t), MALLOC_CAP_DEFAULT);
     CAM_CHECK(cam_obj->frames != NULL, "frames malloc failed", ESP_FAIL);
 
     uint8_t dma_align = 0;
@@ -473,6 +474,16 @@ camera_fb_t *cam_take(TickType_t timeout)
     camera_fb_t *dma_buffer = NULL;
     TickType_t start = xTaskGetTickCount();
     xQueueReceive(cam_obj->frame_buffer_queue, (void *)&dma_buffer, timeout);
+#if CONFIG_IDF_TARGET_ESP32S3
+    // Currently (22.01.2024) there is a bug in ESP-IDF v5.2, that causes
+    // GDMA to fall into a strange state if it is running while WiFi STA is connecting.
+    // This code tries to reset GDMA if frame is not received, to try and help with
+    // this case. It is possible to have some side effects too, though none come to mind
+    if (!dma_buffer) {
+        ll_cam_dma_reset(cam_obj);
+        xQueueReceive(cam_obj->frame_buffer_queue, (void *)&dma_buffer, timeout);
+    }
+#endif
     if (dma_buffer) {
         if(cam_obj->jpeg_mode){
             // find the end marker for JPEG. Data after that can be discarded
@@ -497,6 +508,9 @@ camera_fb_t *cam_take(TickType_t timeout)
         return dma_buffer;
     } else {
         ESP_LOGW(TAG, "Failed to get the frame on time!");
+// #if CONFIG_IDF_TARGET_ESP32S3
+//         ll_cam_dma_print_state(cam_obj);
+// #endif
     }
     return NULL;
 }

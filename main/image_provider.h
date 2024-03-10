@@ -38,7 +38,7 @@ limitations under the License.
 // Returns buffer to be displayed
 void *image_provider_get_display_buf();
 
-TfLiteStatus GetImage(int image_width, int image_height, int channels, int8_t* image_data);
+TfLiteStatus GetImage(int image_width, int image_height, int channels, int8_t* image_data, uint8_t* jpg_data);
 
 TfLiteStatus InitCamera();
 

@@ -40,12 +40,129 @@ static EventGroupHandle_t s_wifi_event_group;
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1
 
-static const char *TAG = "node 1";
+static const char *TAG = "node1";
 
+#include "esp_http_client.h"
+#include "esp_tls.h"
+
+#define MAX_HTTP_RECV_BUFFER 2048
+#define MAX_HTTP_OUTPUT_BUFFER 2048
 
 
 static int s_retry_num = 0;
 
+// esp_err_t _http_event_handler(esp_http_client_event_t *evt)
+// {
+//     static char *output_buffer;  // Buffer to store response of http request from event handler
+//     static int output_len;       // Stores number of bytes read
+//     static esp_err_t err;
+//     int mbedtls_err;
+//     switch(evt->event_id) {
+//         case HTTP_EVENT_ERROR:
+//             ESP_LOGD(TAG, "HTTP_EVENT_ERROR");
+//             break;
+//         case HTTP_EVENT_ON_CONNECTED:
+//             ESP_LOGD(TAG, "HTTP_EVENT_ON_CONNECTED");
+//             break;
+//         case HTTP_EVENT_HEADER_SENT:
+//             ESP_LOGD(TAG, "HTTP_EVENT_HEADER_SENT");
+//             break;
+//         case HTTP_EVENT_ON_HEADER:
+//             ESP_LOGD(TAG, "HTTP_EVENT_ON_HEADER, key=%s, value=%s", evt->header_key, evt->header_value);
+//             break;
+//         case HTTP_EVENT_ON_DATA:
+//             ESP_LOGD(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
+//             // Clean the buffer in case of a new request
+//             if (output_len == 0 && evt->user_data) {
+//                 // we are just starting to copy the output data into the use
+//                 memset(evt->user_data, 0, MAX_HTTP_OUTPUT_BUFFER);
+//             }
+
+//             break;
+//         case HTTP_EVENT_ON_FINISH:
+//             ESP_LOGD(TAG, "HTTP_EVENT_ON_FINISH");
+//             if (output_buffer != NULL) {
+//                 // Response is accumulated in output_buffer. Uncomment the below line to print the accumulated response
+//                 // ESP_LOG_BUFFER_HEX(TAG, output_buffer, output_len);
+//                 // free(output_buffer);
+//                 output_buffer = NULL;
+//             }
+//             output_len = 0;
+//             break;
+//         case HTTP_EVENT_DISCONNECTED:
+//             ESP_LOGI(TAG, "HTTP_EVENT_DISCONNECTED");
+//             mbedtls_err = 0;
+//             err = esp_tls_get_and_clear_last_error((esp_tls_error_handle_t)evt->data, &mbedtls_err, NULL);
+//             if (err != 0) {
+//                 ESP_LOGI(TAG, "Last esp error code: 0x%x", err);
+//                 ESP_LOGI(TAG, "Last mbedtls failure: 0x%x", mbedtls_err);
+//             }
+//             if (output_buffer != NULL) {
+//                 free(output_buffer);
+//                 output_buffer = NULL;
+//             }
+//             output_len = 0;
+//             break;
+//         case HTTP_EVENT_REDIRECT:
+//             ESP_LOGD(TAG, "HTTP_EVENT_REDIRECT");
+//             esp_http_client_set_header(evt->client, "From", "user@example.com");
+//             esp_http_client_set_header(evt->client, "Accept", "text/html");
+//             esp_http_client_set_redirection(evt->client);
+//             break;
+//     }
+//     return ESP_OK;
+// }
+
+// extern void http_rest_with_url(void)
+// {
+//     // Declare local_response_buffer with size (MAX_HTTP_OUTPUT_BUFFER + 1) to prevent out of bound access when
+//     // it is used by functions like strlen(). The buffer should only be used upto size MAX_HTTP_OUTPUT_BUFFER
+//     char local_response_buffer[MAX_HTTP_OUTPUT_BUFFER + 1] = {0};
+//     /**
+//      * NOTE: All the configuration parameters for http_client must be spefied either in URL or as host and path parameters.
+//      * If host and path parameters are not set, query parameter will be ignored. In such cases,
+//      * query parameter should be specified in URL.
+//      *
+//      * If URL as well as host and path parameters are specified, values of host and path will be considered.
+//      */
+//     esp_http_client_config_t config = {
+//         .host = "192.168.41.124",
+//         .path = "/get",
+//         .query = "esp",
+//         .event_handler = _http_event_handler,
+//         .user_data = local_response_buffer,        // Pass address of local buffer to get response
+//     };
+//     esp_http_client_handle_t client = esp_http_client_init(&config);
+
+//     // GET
+//     esp_err_t err = esp_http_client_perform(client);
+//     if (err == ESP_OK) {
+//         ESP_LOGI(TAG, "HTTP GET Status = %d, content_length = %"PRId64,
+//                 esp_http_client_get_status_code(client),
+//                 esp_http_client_get_content_length(client));
+//     } else {
+//         ESP_LOGE(TAG, "HTTP GET request failed: %s", esp_err_to_name(err));
+//     }
+//     ESP_LOG_BUFFER_HEX(TAG, local_response_buffer, strlen(local_response_buffer));
+
+//     // // POST
+//     // const char *post_data = "{\"field1\":\"value1\"}";
+//     // esp_http_client_set_url(client, "http://192.168.41.124/post");
+//     // esp_http_client_set_method(client, HTTP_METHOD_POST);
+//     // esp_http_client_set_header(client, "Content-Type", "application/json");
+//     // esp_http_client_set_post_field(client, post_data, strlen(post_data));
+//     // err = esp_http_client_perform(client);
+//     // if (err == ESP_OK) {
+//     //     ESP_LOGI(TAG, "HTTP POST Status = %d, content_length = %"PRId64,
+//     //             esp_http_client_get_status_code(client),
+//     //             esp_http_client_get_content_length(client));
+//     // } else {
+//     //     ESP_LOGE(TAG, "HTTP POST request failed: %s", esp_err_to_name(err));
+//     // }
+
+
+//     esp_http_client_cleanup(client);
+// }
 
 
 static void event_handler(void* arg, esp_event_base_t event_base,
@@ -156,9 +273,17 @@ extern "C" void app_main() {
       ret = nvs_flash_init();
     }
     ESP_ERROR_CHECK(ret);
+    esp_log_level_set("*", ESP_LOG_INFO);
+    esp_log_level_set("mqtt_client", ESP_LOG_VERBOSE);
+    esp_log_level_set("node1", ESP_LOG_VERBOSE);
+    esp_log_level_set("transport_base", ESP_LOG_VERBOSE);
+    esp_log_level_set("esp-tls", ESP_LOG_VERBOSE);
+    esp_log_level_set("transport", ESP_LOG_VERBOSE);
 
     ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
     wifi_init_sta();
+    // http_rest_with_url();
+    // mqtt_app_start();
   xTaskCreate((TaskFunction_t)&tf_main, "tf_main", 4 * 1024, NULL, 8, NULL);
-  vTaskDelete(NULL);
+  // vTaskDelete(NULL);
 }

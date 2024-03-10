@@ -55,6 +55,13 @@ constexpr int kTensorArenaSize = 81 * 1024 + scratchBufSize;
 static uint8_t *tensor_arena;//[kTensorArenaSize]; // Maybe we should move this to external
 }  // namespace
 
+
+// Code I wrote
+static uint8_t *jpg_data;
+
+
+// End of Code I wrote
+
 // The name of this function is important for Arduino compatibility.
 void setup() {
   // Map the model into a usable data structure. This doesn't involve any
@@ -66,6 +73,10 @@ void setup() {
     return;
   }
 
+  // if (bmp_data == NULL) {
+  //   bmp_data = (uint8_t *) heap_caps_malloc(128, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
+  // }
+  
   if (tensor_arena == NULL) {
     tensor_arena = (uint8_t *) heap_caps_malloc(kTensorArenaSize, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
   }
@@ -119,7 +130,7 @@ void setup() {
 // The name of this function is important for Arduino compatibility.
 void loop() {
   // Get image from provider.
-  if (kTfLiteOk != GetImage(kNumCols, kNumRows, kNumChannels, input->data.int8)) {
+  if (kTfLiteOk != GetImage(kNumCols, kNumRows, kNumChannels, input->data.int8, jpg_data)) {
     MicroPrintf("Image capture failed.");
   }
 
