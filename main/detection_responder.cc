@@ -55,7 +55,7 @@ static lv_obj_t *camera_canvas = NULL;
 #include "image_provider.h"
 #include "esp_main.h"
 
-// #include "mbedtls/base64.h"
+#include "mbedtls/base64.h"
 
 #include "esp_http_client.h"
 #include "esp_tls.h"
@@ -65,19 +65,19 @@ static const char *TAG = "node1";
 #define MAX_HTTP_OUTPUT_BUFFER 2048
 
 
-static const char *REQUEST = "GET /echo HTTP/1.0\r\n"
-    "Host: 192.168.41.124\r\n"
-    "User-Agent: esp-idf/1.0 esp32\r\n"
-    "\r\n";
+// static const char *REQUEST = "GET /alert HTTP/1.0\r\n"
+//     "Host: 192.168.41.124\r\n"
+//     "User-Agent: esp-idf/1.0 esp32\r\n";
+static const char *REQUEST = "FILE ";
 
 
-static void http_get_task()
+static void send_data()
 {
 
     struct in_addr *addr;
     struct sockaddr_in serv_addr;
     serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(80);
+    serv_addr.sin_port = htons(2040);
     int s, r;
     camera_fb_t* fb = esp_camera_fb_get();
     esp_camera_fb_return(fb);
@@ -85,15 +85,21 @@ static void http_get_task()
   // MicroPrintf("Image in bmp %d\n",(size_t *) sizeof(bmp_data));
   size_t _jpg_buf_len;
   uint8_t * _jpg_buf;
+  // char * buffer_array = "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
+  // char * buffer_array;
+  size_t outlen;
+  // char * buffer_array = (char *)malloc(128*1024);
+  // mbedtls_base64_encode(buffer_array, 64, &outlen, input, strlen(input));
+  // memset(buffer_array, '\x00', 10);
   bool jpeg_converted = frame2jpg(fb, 80, &_jpg_buf, &_jpg_buf_len);
+  // memcpy(buffer_array,_jpg_buf,10);
+  // *buffer_array = (char )_jpg_buf;
   MicroPrintf("Jpeg compression success: %d\n",jpeg_converted); 
   MicroPrintf("Jpeg compression size: %d\n",_jpg_buf_len); 
   // ESP_LOG_BUFFER_HEX(TAG, _jpg_buf,_jpg_buf_len);
 
-  if(jpeg_converted){
-    // memcpy(jpg_data,_jpg_buf,_jpg_buf_len);
-    free(_jpg_buf);
-    }
+// mbedtls_base64_encode(output, 64, &outlen, input, strlen(input));
+
     char recv_buf[64];
         s = socket(AF_INET, SOCK_STREAM, 0);
         if(s < 0) {
@@ -121,11 +127,21 @@ static void http_get_task()
             vTaskDelay(4000 / portTICK_PERIOD_MS);
         }
         else {
-            write(s, _jpg_buf, _jpg_buf_len);
+            // ESP_LOG_BUFFER_HEX(TAG, _jpg_buf,_jpg_buf_len);
+            // write(s,"Content-Length: 2048\r\n",22);
+            // write(s,"Content-Type: application/x-www-form-urlencoded\r\n",49);
+            // write(s,"file: ",5);
+            // mbedtls_base64_encode((unsigned char *)buffer_array, _jpg_buf_len, &outlen, _jpg_buf, _jpg_buf_len);
+            // ESP_LOG_BUFFER_HEX(TAG, buffer_array,_jpg_buf_len);
+            // write(s, buffer_array, _jpg_buf_len); 
+            write(s, _jpg_buf, _jpg_buf_len); 
+            // write(s,"\r\n",2);
 
         }
         ESP_LOGI(TAG, "... socket send success");
-
+        if(jpeg_converted){
+        free(_jpg_buf);
+        }
         struct timeval receiving_timeout;
         receiving_timeout.tv_sec = 5;
         receiving_timeout.tv_usec = 0;
@@ -204,7 +220,7 @@ void RespondToDetection(float person_score, float no_person_score) {
   //             person_score_int, 100 - person_score_int);
   if(person_score_int>70){
   MicroPrintf("A person has been detected with confidence %d%%. Sending alerts!", person_score_int);
-  http_get_task();
+  send_data();
 
 
   }

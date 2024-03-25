@@ -16,5 +16,5 @@ idf_component_register(
         "esp_cli.c"
 
     PRIV_REQUIRES console static_images spi_flash
-    REQUIRES esp_wifi nvs_flash esp_http_client esp-tls esp_http_server
+    REQUIRES esp_wifi nvs_flash esp_http_client esp-tls esp_http_server mbedtls
     INCLUDE_DIRS "")
