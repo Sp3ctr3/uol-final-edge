@@ -68,9 +68,8 @@ static const char *TAG = "node1";
 // static const char *REQUEST = "GET /alert HTTP/1.0\r\n"
 //     "Host: 192.168.41.124\r\n"
 //     "User-Agent: esp-idf/1.0 esp32\r\n";
-static const char *REQUEST = "FILE ";
 
-
+ // Code I wrote based on HTTP example from ESP documentation
 static void send_data()
 {
 
@@ -81,64 +80,51 @@ static void send_data()
     int s, r;
     camera_fb_t* fb = esp_camera_fb_get();
     esp_camera_fb_return(fb);
-  // bool converted = frame2bmp(fb, &bmp_data, (size_t *) 1);
-  // MicroPrintf("Image in bmp %d\n",(size_t *) sizeof(bmp_data));
+
   size_t _jpg_buf_len;
   uint8_t * _jpg_buf;
-  // char * buffer_array = "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00";
-  // char * buffer_array;
+
   size_t outlen;
-  // char * buffer_array = (char *)malloc(128*1024);
-  // mbedtls_base64_encode(buffer_array, 64, &outlen, input, strlen(input));
-  // memset(buffer_array, '\x00', 10);
+
   bool jpeg_converted = frame2jpg(fb, 80, &_jpg_buf, &_jpg_buf_len);
-  // memcpy(buffer_array,_jpg_buf,10);
-  // *buffer_array = (char )_jpg_buf;
+
   MicroPrintf("Jpeg compression success: %d\n",jpeg_converted); 
   MicroPrintf("Jpeg compression size: %d\n",_jpg_buf_len); 
-  // ESP_LOG_BUFFER_HEX(TAG, _jpg_buf,_jpg_buf_len);
-
-// mbedtls_base64_encode(output, 64, &outlen, input, strlen(input));
+ 
 
     char recv_buf[64];
         s = socket(AF_INET, SOCK_STREAM, 0);
         if(s < 0) {
-            ESP_LOGE(TAG, "... Failed to allocate socket.");
+            ESP_LOGE(TAG, "Failed to allocate socket.");
             vTaskDelay(1000 / portTICK_PERIOD_MS);
         }
-        ESP_LOGI(TAG, "... allocated socket");
-        if (inet_pton(AF_INET, "192.168.41.124", &serv_addr.sin_addr) <= 0) {
+        ESP_LOGI(TAG, "Allocated socket");
+        if (inet_pton(AF_INET, "192.168.207.124", &serv_addr.sin_addr) <= 0) {
         printf(
             "\nInvalid address/ Address not supported \n");
         return;
         }
 
         if(connect(s, (struct sockaddr*)&serv_addr,sizeof(serv_addr) ) != 0) {
-            ESP_LOGE(TAG, "... socket connect failed errno=%d", errno);
+            ESP_LOGE(TAG, "Socket connect failed errno=%d", errno);
             close(s);
             vTaskDelay(4000 / portTICK_PERIOD_MS);
         }
 
-        ESP_LOGI(TAG, "... connected");
+        ESP_LOGI(TAG, "Connected");
 
-        if (write(s, REQUEST, strlen(REQUEST)) < 0) {
-            ESP_LOGE(TAG, "... socket send failed");
+        if (write(s, TAG, strlen(TAG)) < 0) {
+            ESP_LOGE(TAG, "Socket send failed");
             close(s);
             vTaskDelay(4000 / portTICK_PERIOD_MS);
         }
         else {
-            // ESP_LOG_BUFFER_HEX(TAG, _jpg_buf,_jpg_buf_len);
-            // write(s,"Content-Length: 2048\r\n",22);
-            // write(s,"Content-Type: application/x-www-form-urlencoded\r\n",49);
-            // write(s,"file: ",5);
-            // mbedtls_base64_encode((unsigned char *)buffer_array, _jpg_buf_len, &outlen, _jpg_buf, _jpg_buf_len);
-            // ESP_LOG_BUFFER_HEX(TAG, buffer_array,_jpg_buf_len);
-            // write(s, buffer_array, _jpg_buf_len); 
+
             write(s, _jpg_buf, _jpg_buf_len); 
-            // write(s,"\r\n",2);
+
 
         }
-        ESP_LOGI(TAG, "... socket send success");
+        ESP_LOGI(TAG, "Socket send success");
         if(jpeg_converted){
         free(_jpg_buf);
         }
@@ -147,13 +133,13 @@ static void send_data()
         receiving_timeout.tv_usec = 0;
         if (setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &receiving_timeout,
                 sizeof(receiving_timeout)) < 0) {
-            ESP_LOGE(TAG, "... failed to set socket receiving timeout");
+            ESP_LOGE(TAG, "Failed to set timeout");
             close(s);
             vTaskDelay(4000 / portTICK_PERIOD_MS);
         }
-        ESP_LOGI(TAG, "... set socket receiving timeout success");
+        ESP_LOGI(TAG, "Set socket timeout successfully");
 
-        /* Read HTTP response */
+        // Read response
         do {
             bzero(recv_buf, sizeof(recv_buf));
             r = read(s, recv_buf, sizeof(recv_buf)-1);
@@ -162,11 +148,12 @@ static void send_data()
             }
         } while(r > 0);
 
-        ESP_LOGI(TAG, "... done reading from socket. Last read return=%d errno=%d.", r, errno);
+        ESP_LOGI(TAG, "Return=%d Error=%d.", r, errno);
         close(s);
-        ESP_LOGI(TAG, "Starting again!");
     
 }
+
+//End of code I wrote
 
 void RespondToDetection(float person_score, float no_person_score) {
   int person_score_int = (person_score) * 100 + 0.5;
@@ -197,31 +184,14 @@ void RespondToDetection(float person_score, float no_person_score) {
     lv_canvas_set_buffer(camera_canvas, buf, IMG_WD, IMG_HT, LV_IMG_CF_TRUE_COLOR);
     bsp_display_unlock();
 #else
-  if (xQueueLCDFrame == NULL) {
-    xQueueLCDFrame = xQueueCreate(2, sizeof(struct lcd_frame));
-    register_lcd(xQueueLCDFrame, NULL, false);
-  }
 
-  int color = 0x1f << 6; // red
-  if (person_score_int < 60) { // treat score less than 60% as no person
-    color = 0x3f; // green
-  }
-  app_lcd_color_for_detection(color);
-
-  // display frame (freed by lcd task)
-  lcd_frame_t *frame = (lcd_frame_t *) malloc(sizeof(lcd_frame_t));
-  frame->width = 96 * 2;
-  frame->height = 96 * 2;
-  frame->buf = image_provider_get_display_buf();
-  xQueueSend(xQueueLCDFrame, &frame, portMAX_DELAY);
 #endif
 #endif
-  // MicroPrintf("person score:%d%%, no person score %d%%",
-  //             person_score_int, 100 - person_score_int);
+    //Code I wrote
   if(person_score_int>70){
   MicroPrintf("A person has been detected with confidence %d%%. Sending alerts!", person_score_int);
   send_data();
-
+   //End of code I wrote
 
   }
 }

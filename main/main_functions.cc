@@ -32,6 +32,8 @@ limitations under the License.
 #include <esp_log.h>
 #include "esp_main.h"
 
+#include "driver\gpio.h"
+
 // Globals, used for compatibility with Arduino-style sketches.
 namespace {
 const tflite::Model* model = nullptr;
@@ -58,12 +60,26 @@ static uint8_t *tensor_arena;//[kTensorArenaSize]; // Maybe we should move this 
 
 // Code I wrote
 static uint8_t *jpg_data;
-
+#define microphone GPIO_NUM_18
+#define microphone_bitmask (1ULL << microphone)
+gpio_config_t GPIOconfig;
 
 // End of Code I wrote
 
 // The name of this function is important for Arduino compatibility.
 void setup() {
+
+  // Code I wrote
+  GPIOconfig.pin_bit_mask = (microphone_bitmask);
+  GPIOconfig.pull_down_en = GPIO_PULLDOWN_DISABLE;
+  GPIOconfig.pull_up_en = GPIO_PULLUP_DISABLE;
+  GPIOconfig.mode = GPIO_MODE_INPUT;
+  GPIOconfig.intr_type = GPIO_INTR_DISABLE;
+
+  gpio_config(&GPIOconfig);
+  gpio_set_direction(microphone, GPIO_MODE_INPUT);
+  gpio_set_pull_mode(microphone, GPIO_PULLUP_ONLY);
+  // End of Code I wrote
   // Map the model into a usable data structure. This doesn't involve any
   // copying or parsing, it's a very lightweight operation.
   model = tflite::GetModel(g_person_detect_model_data);
@@ -129,6 +145,7 @@ void setup() {
 #ifndef CLI_ONLY_INFERENCE
 // The name of this function is important for Arduino compatibility.
 void loop() {
+
   // Get image from provider.
   if (kTfLiteOk != GetImage(kNumCols, kNumRows, kNumChannels, input->data.int8, jpg_data)) {
     MicroPrintf("Image capture failed.");
